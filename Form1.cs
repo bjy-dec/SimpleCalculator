@@ -560,5 +560,10 @@ namespace SimpleCalculator
             currentOperand = currentOperand + "\u00B3";
             textBoxResult.Clear();
         }
+
+        private void lblName_Click(object sender, EventArgs e)
+        {
+
+        }
     }
 }
