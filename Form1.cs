@@ -74,7 +74,7 @@ namespace SimpleCalculator
         {
             if (sender is Button b)
             {
-                // Append digit to expression only; textBoxExpression_TextChanged will update currentOperand and textBoxResult
+                // Append to expression only; textBoxExpression_TextChanged will update currentOperand and textBoxResult
                 textBoxExpression.AppendText(b.Text);
             }
         }
@@ -108,26 +108,17 @@ namespace SimpleCalculator
                     currentOperand = string.Empty;
                 }
 
-                // If last token is an operator, replace it (and update displayed expression)
-                var expr = textBoxExpression.Text ?? string.Empty;
+                // If last token is an operator, replace it
                 if (tokens.Any() && IsOperator(tokens.Last()))
                 {
                     tokens[tokens.Count - 1] = b.Text;
-                    // remove existing trailing operator (and surrounding spaces) from display
-                    int last = LastNonSpaceIndex(expr);
-                    if (last >= 0 && IsOperator(expr[last].ToString()))
-                    {
-                        int opStart = last;
-                        while (opStart > 0 && char.IsWhiteSpace(expr[opStart - 1])) opStart--;
-                        expr = expr.Substring(0, opStart);
-                    }
-                    textBoxExpression.Text = expr + " " + b.Text + " ";
                 }
                 else
                 {
                     tokens.Add(b.Text);
-                    textBoxExpression.AppendText(" " + b.Text + " ");
                 }
+
+                textBoxExpression.AppendText(b.Text);
             }
         }
 
@@ -161,14 +152,10 @@ namespace SimpleCalculator
                 return;
             }
 
-            // If last non-space char is an operator, remove that operator and surrounding spaces
-            int last = LastNonSpaceIndex(expr);
-            if (last >= 0 && IsOperator(expr[last].ToString()))
+            // If last char is an operator, remove that operator
+            if (expr.Length > 0 && IsOperator(expr.Last().ToString()))
             {
-                int opStart = last;
-                while (opStart > 0 && char.IsWhiteSpace(expr[opStart - 1])) opStart--;
-                // remove from 'opStart' to end
-                textBoxExpression.Text = expr.Substring(0, opStart);
+                textBoxExpression.Text = expr.Substring(0, expr.Length - 1);
                 textBoxResult.Clear();
                 return;
             }
@@ -267,8 +254,8 @@ namespace SimpleCalculator
                 // clear tokens and set currentOperand to result so further calculations can continue
                 tokens.Clear();
                 currentOperand = value;
-                // show expression with result appended (display with spaces)
-                textBoxExpression.Text = beforeEq + " = " + value;
+                // show expression with result appended
+                textBoxExpression.Text = beforeEq + "=" + value;
             }
             catch
             {
@@ -287,15 +274,6 @@ namespace SimpleCalculator
             if (string.IsNullOrEmpty(s)) return false;
             if (s == "(" || s == ")") return true;
             return IsOperator(s);
-        }
-
-        // Find last index that is not whitespace, or -1 if none
-        private static int LastNonSpaceIndex(string s)
-        {
-            if (string.IsNullOrEmpty(s)) return -1;
-            int i = s.Length - 1;
-            while (i >= 0 && char.IsWhiteSpace(s[i])) i--;
-            return i;
         }
 
         // Prepare expression for evaluation:
@@ -465,19 +443,13 @@ namespace SimpleCalculator
         {
             if (string.IsNullOrEmpty(expr)) return 0;
             int idx = expr.Length - 1;
-            // skip trailing spaces
-            while (idx >= 0 && char.IsWhiteSpace(expr[idx])) idx--;
-            // scan back until separator
             while (idx >= 0 && !IsSeparator(expr[idx].ToString())) idx--;
 
             // If the character at idx is '-' it might be a sign for the operand.
             if (idx >= 0 && expr[idx] == '-')
             {
-                // find previous non-space
-                int prev = idx - 1;
-                while (prev >= 0 && char.IsWhiteSpace(expr[prev])) prev--;
                 // treat '-' as sign when it's at the start or preceded by an operator or '('
-                if (idx == 0 || prev < 0 || IsOperator(expr[prev].ToString()) || expr[prev] == '(')
+                if (idx == 0 || IsOperator(expr[idx - 1].ToString()) || expr[idx - 1] == '(')
                 {
                     return idx; // include the '-' as part of operand
                 }
@@ -516,7 +488,7 @@ namespace SimpleCalculator
                 {
                     var value = EvaluateExpression(beforeEq);
                     // append result after '='; this will re-enter TextChanged but the guard above prevents recomputation
-                    textBoxExpression.Text = beforeEq + " = " + value;
+                    textBoxExpression.Text = beforeEq + "=" + value;
                     textBoxResult.Text = value;
                     tokens.Clear();
                     currentOperand = value;
