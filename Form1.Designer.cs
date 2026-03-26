@@ -28,6 +28,7 @@
         /// </summary>
         private void InitializeComponent()
         {
+<<<<<<< HEAD
             textBoxExpression = new TextBox();
             textBoxResult = new TextBox();
             lblName = new Label();
@@ -411,5 +412,14 @@
         private Button btnCloseParen;
         private Button btnNumSquare;
         private Button btnNumCube;
+=======
+            components = new System.ComponentModel.Container();
+            AutoScaleMode = AutoScaleMode.Font;
+            ClientSize = new Size(800, 450);
+            Text = "Form1";
+        }
+
+        #endregion
+>>>>>>> parent of 1e41e7a (과제1 코딩과 테스트 완료)
     }
 }
