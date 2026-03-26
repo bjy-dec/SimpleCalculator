@@ -164,9 +164,26 @@ namespace SimpleCalculator
             {
                 tokens.Add(currentOperand);
             }
+            // build evaluable expression from displayed expression
+            var original = textBoxExpression.Text ?? string.Empty;
+            // if user already has '=' in the expression, evaluate only the part before '='
+            var beforeEq = original;
+            var eqIndex = original.IndexOf('=');
+            if (eqIndex >= 0)
+                beforeEq = original.Substring(0, eqIndex);
 
-            // build evaluable expression
-            var expr = textBoxExpression.Text.Replace("X", "*").Replace("x", "*").Replace("÷", "/");
+            var expr = beforeEq.Replace("X", "*").Replace("x", "*").Replace("×", "*").Replace("÷", "/");
+
+            // remove trailing operator if any
+            while (expr.Length > 0 && IsOperator(expr.Last().ToString()))
+                expr = expr.Substring(0, expr.Length - 1);
+
+            if (string.IsNullOrWhiteSpace(expr))
+            {
+                textBoxResult.Text = string.Empty;
+                return;
+            }
+
             try
             {
                 var dt = new DataTable();
@@ -175,7 +192,8 @@ namespace SimpleCalculator
                 // clear tokens and set currentOperand to result so further calculations can continue
                 tokens.Clear();
                 currentOperand = value.ToString();
-                textBoxExpression.Text = expr; // keep expression as entered (mapped operators)
+                // show expression with result appended
+                textBoxExpression.Text = beforeEq + "=" + value.ToString();
             }
             catch
             {
@@ -185,13 +203,54 @@ namespace SimpleCalculator
 
         private static bool IsOperator(string s)
         {
-            return s == "+" || s == "-" || s == "X" || s == "x" || s == "*" || s == "÷" || s == "/";
+            return s == "+" || s == "-" || s == "X" || s == "x" || s == "×" || s == "*" || s == "÷" || s == "/";
         }
 
         private void textBoxExpression_TextChanged(object sender, EventArgs e)
         {
+            // Handle manual '=' typing: if expression ends with '=' compute and append result
+            var expr = textBoxExpression.Text ?? string.Empty;
+            var eqIndex = expr.IndexOf('=');
+            if (eqIndex >= 0)
+            {
+                // If there's already something after '=', treat it as the current operand/result and do nothing
+                if (eqIndex < expr.Length - 1)
+                {
+                    currentOperand = expr.Substring(eqIndex + 1);
+                    textBoxResult.Text = currentOperand;
+                    return;
+                }
+
+                // Expression ends with '=' -> evaluate the part before '=' and append the result
+                var beforeEq = expr.Substring(0, eqIndex);
+                var eval = beforeEq.Replace("X", "*").Replace("x", "*").Replace("×", "*").Replace("÷", "/");
+                while (eval.Length > 0 && IsOperator(eval.Last().ToString()))
+                    eval = eval.Substring(0, eval.Length - 1);
+                if (string.IsNullOrWhiteSpace(eval))
+                {
+                    textBoxResult.Text = string.Empty;
+                    return;
+                }
+
+                try
+                {
+                    var dt = new DataTable();
+                    var value = dt.Compute(eval, null);
+                    // append result after '='; this will re-enter TextChanged but the guard above prevents recomputation
+                    textBoxExpression.Text = beforeEq + "=" + value.ToString();
+                    textBoxResult.Text = value.ToString();
+                    tokens.Clear();
+                    currentOperand = value.ToString();
+                }
+                catch
+                {
+                    textBoxResult.Text = "Error";
+                }
+
+                return;
+            }
+
             // keep behavior minimal: when user types directly in expression, update current operand and result preview
-            var expr = textBoxExpression.Text;
             int idx = expr.Length - 1;
             var operand = string.Empty;
             while (idx >= 0 && !IsOperator(expr[idx].ToString()))
