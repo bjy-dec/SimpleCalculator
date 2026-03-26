@@ -1,6 +1,8 @@
 using System.Data;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
+using System.Globalization;
 
 namespace SimpleCalculator
 {
@@ -45,6 +47,27 @@ namespace SimpleCalculator
             btnDel.Click += BtnDel_Click;
             btnPM.Click += BtnPM_Click;
             btnResult.Click += BtnResult_Click;
+
+            // Attach handlers for any parentheses buttons that may exist on the form (Text = "(" or ")")
+            AttachParenHandlers(this);
+            // cube button handler (square button is wired in Designer to button1_Click)
+            btnNumCube.Click += BtnCube_Click;
+        }
+
+        private void AttachParenHandlers(Control parent)
+        {
+            foreach (Control c in parent.Controls)
+            {
+                if (c is Button b)
+                {
+                    if (b.Text == "(") b.Click += (s, e) => textBoxExpression.AppendText("(");
+                    else if (b.Text == ")") b.Click += (s, e) => textBoxExpression.AppendText(")");
+                }
+
+                // recurse
+                if (c.HasChildren)
+                    AttachParenHandlers(c);
+            }
         }
 
         private void Digit_Click(object? sender, EventArgs e)
@@ -137,10 +160,9 @@ namespace SimpleCalculator
                 return;
             }
 
-            // otherwise remove trailing operand (all digits/decimal/sign until previous operator)
-            int idx = expr.Length - 1;
-            while (idx >= 0 && !IsOperator(expr[idx].ToString())) idx--;
-            textBoxExpression.Text = idx >= 0 ? expr.Substring(0, idx + 1) : string.Empty;
+            // otherwise remove trailing operand (all digits/decimal/sign until previous operator or parenthesis)
+            int start = FindLastOperandStart(expr);
+            textBoxExpression.Text = start > 0 ? expr.Substring(0, start) : string.Empty;
             textBoxResult.Clear();
         }
 
@@ -177,15 +199,9 @@ namespace SimpleCalculator
             expr = expr.Substring(0, expr.Length - 1);
             textBoxExpression.Text = expr;
 
-            // update currentOperand by scanning back from end until operator
-            int idx = expr.Length - 1;
-            var operand = string.Empty;
-            while (idx >= 0 && !IsOperator(expr[idx].ToString()))
-            {
-                operand = expr[idx] + operand;
-                idx--;
-            }
-            currentOperand = operand;
+            // update currentOperand by finding start index (include possible leading sign)
+            int start = FindLastOperandStart(expr);
+            currentOperand = start < expr.Length ? expr.Substring(start) : string.Empty;
             textBoxResult.Text = currentOperand;
         }
 
@@ -197,11 +213,10 @@ namespace SimpleCalculator
             else
                 currentOperand = "-" + currentOperand;
 
-            // rebuild expression: replace last operand in expression
-            var expr = textBoxExpression.Text;
-            int idx = expr.Length - 1;
-            while (idx >= 0 && !IsOperator(expr[idx].ToString())) idx--;
-            textBoxExpression.Text = (idx >= 0 ? expr.Substring(0, idx + 1) : string.Empty) + currentOperand;
+            // rebuild expression: replace last operand in expression (respect signed operands)
+            var expr = textBoxExpression.Text ?? string.Empty;
+            int start = FindLastOperandStart(expr);
+            textBoxExpression.Text = (start > 0 ? expr.Substring(0, start) : string.Empty) + currentOperand;
             textBoxResult.Text = currentOperand;
         }
 
@@ -220,7 +235,7 @@ namespace SimpleCalculator
             if (eqIndex >= 0)
                 beforeEq = original.Substring(0, eqIndex);
 
-            var expr = beforeEq.Replace("X", "*").Replace("x", "*").Replace("×", "*").Replace("÷", "/");
+            var expr = PrepareExpressionForCompute(beforeEq);
 
             // remove trailing operator if any
             while (expr.Length > 0 && IsOperator(expr.Last().ToString()))
@@ -234,14 +249,13 @@ namespace SimpleCalculator
 
             try
             {
-                var dt = new DataTable();
-                var value = dt.Compute(expr, null);
-                textBoxResult.Text = value.ToString();
+                var value = EvaluateExpression(beforeEq);
+                textBoxResult.Text = value;
                 // clear tokens and set currentOperand to result so further calculations can continue
                 tokens.Clear();
-                currentOperand = value.ToString();
+                currentOperand = value;
                 // show expression with result appended
-                textBoxExpression.Text = beforeEq + "=" + value.ToString();
+                textBoxExpression.Text = beforeEq + "=" + value;
             }
             catch
             {
@@ -252,6 +266,196 @@ namespace SimpleCalculator
         private static bool IsOperator(string s)
         {
             return s == "+" || s == "-" || s == "X" || s == "x" || s == "×" || s == "*" || s == "÷" || s == "/";
+        }
+
+        // Treat parentheses as separators when scanning operands
+        private static bool IsSeparator(string s)
+        {
+            if (string.IsNullOrEmpty(s)) return false;
+            if (s == "(" || s == ")") return true;
+            return IsOperator(s);
+        }
+
+        // Prepare expression for evaluation:
+        // - map displayed operators to compute-friendly ones
+        // - remove spaces
+        // - insert '*' for implicit multiplication, e.g. "2(3+4)" -> "2*(3+4)", "(2)(3)" -> "(2)*(3)", "2)3" -> "2)*3"
+        private static string PrepareExpressionForCompute(string s)
+        {
+            if (string.IsNullOrWhiteSpace(s)) return string.Empty;
+            // Map display operators and superscripts to compute-friendly ones
+            var src = s.Replace("X", "*").Replace("x", "*").Replace("×", "*")
+                       .Replace("÷", "/").Replace("\u00B2", "^2").Replace("\u00B3", "^3").Replace(" ", string.Empty);
+            var sb = new StringBuilder();
+            for (int i = 0; i < src.Length; i++)
+            {
+                char c = src[i];
+                sb.Append(c);
+                if (i < src.Length - 1)
+                {
+                    char n = src[i + 1];
+                    // insert '*' when: digit or '.' or ')' is followed by '(', or ')' followed by digit or '.'
+                    if ((char.IsDigit(c) || c == '.' || c == ')') && n == '(')
+                    {
+                        sb.Append('*');
+                    }
+                    else if (c == ')' && (char.IsDigit(n) || n == '.'))
+                    {
+                        sb.Append('*');
+                    }
+                }
+            }
+            return sb.ToString();
+        }
+
+        // Evaluate arithmetic expression supporting + - * / ^ and parentheses.
+        // Uses shunting-yard to handle precedence and associativity, then evaluates RPN.
+        private static string EvaluateExpression(string expr)
+        {
+            var src = PrepareExpressionForCompute(expr);
+            if (string.IsNullOrWhiteSpace(src)) return string.Empty;
+
+            // Tokenize
+            var tokens = new List<string>();
+            for (int i = 0; i < src.Length; i++)
+            {
+                char c = src[i];
+                if (char.IsWhiteSpace(c)) continue;
+
+                // number (may include leading '-')
+                if (char.IsDigit(c) || c == '.' || (c == '-' && (i == 0 || src[i - 1] == '(' || IsOperator(src[i - 1].ToString())) && i + 1 < src.Length && (char.IsDigit(src[i + 1]) || src[i + 1] == '.')))
+                {
+                    int j = i;
+                    if (src[j] == '-') j++;
+                    while (j < src.Length && (char.IsDigit(src[j]) || src[j] == '.')) j++;
+                    tokens.Add(src.Substring(i, j - i));
+                    i = j - 1;
+                    continue;
+                }
+
+                // unary minus before '(', convert to 0 - (...)
+                if (c == '-' && (i == 0 || src[i - 1] == '(' || IsOperator(src[i - 1].ToString())) && i + 1 < src.Length && src[i + 1] == '(')
+                {
+                    tokens.Add("0");
+                    tokens.Add("-");
+                    continue;
+                }
+
+                // operators and parentheses
+                if (c == '+' || c == '-' || c == '*' || c == '/' || c == '^' || c == '(' || c == ')')
+                {
+                    tokens.Add(c.ToString());
+                    continue;
+                }
+
+                // unknown char
+                throw new ArgumentException($"Invalid character in expression: {c}");
+            }
+
+            // Shunting-yard to RPN
+            var output = new List<string>();
+            var ops = new Stack<string>();
+
+            int Prec(string op) => op == "+" || op == "-" ? 2 : (op == "*" || op == "/" ? 3 : (op == "^" ? 4 : 0));
+            bool IsRightAssoc(string op) => op == "^";
+
+            foreach (var token in tokens)
+            {
+                if (double.TryParse(token, NumberStyles.Any, CultureInfo.InvariantCulture, out _))
+                {
+                    output.Add(token);
+                }
+                else if (token == "+" || token == "-" || token == "*" || token == "/" || token == "^")
+                {
+                    while (ops.Count > 0)
+                    {
+                        var top = ops.Peek();
+                        if (top == "(") break;
+                        int p1 = Prec(token);
+                        int p2 = Prec(top);
+                        if ((IsRightAssoc(token) && p1 < p2) || (!IsRightAssoc(token) && p1 <= p2))
+                        {
+                            output.Add(ops.Pop());
+                            continue;
+                        }
+                        break;
+                    }
+                    ops.Push(token);
+                }
+                else if (token == "(")
+                {
+                    ops.Push(token);
+                }
+                else if (token == ")")
+                {
+                    while (ops.Count > 0 && ops.Peek() != "(")
+                        output.Add(ops.Pop());
+                    if (ops.Count == 0 || ops.Pop() != "(")
+                        throw new ArgumentException("Mismatched parentheses");
+                }
+                else
+                {
+                    throw new ArgumentException($"Unknown token: {token}");
+                }
+            }
+
+            while (ops.Count > 0)
+            {
+                var t = ops.Pop();
+                if (t == "(" || t == ")") throw new ArgumentException("Mismatched parentheses");
+                output.Add(t);
+            }
+
+            // Evaluate RPN
+            var st = new Stack<double>();
+            foreach (var tk in output)
+            {
+                if (double.TryParse(tk, NumberStyles.Any, CultureInfo.InvariantCulture, out double num))
+                {
+                    st.Push(num);
+                }
+                else
+                {
+                    if (st.Count < 2) throw new ArgumentException("Invalid expression");
+                    var b = st.Pop();
+                    var a = st.Pop();
+                    double r = tk switch
+                    {
+                        "+" => a + b,
+                        "-" => a - b,
+                        "*" => a * b,
+                        "/" => a / b,
+                        "^" => Math.Pow(a, b),
+                        _ => throw new ArgumentException($"Unsupported operator: {tk}")
+                    };
+                    st.Push(r);
+                }
+            }
+
+            if (st.Count != 1) throw new ArgumentException("Invalid expression");
+            return st.Pop().ToString(CultureInfo.InvariantCulture);
+        }
+
+        // Find the start index of the last operand in the expression string.
+        // This treats a leading '-' as part of the operand when it represents a sign
+        // (i.e. at the beginning of the expression or following another operator or '(' ).
+        private static int FindLastOperandStart(string expr)
+        {
+            if (string.IsNullOrEmpty(expr)) return 0;
+            int idx = expr.Length - 1;
+            while (idx >= 0 && !IsSeparator(expr[idx].ToString())) idx--;
+
+            // If the character at idx is '-' it might be a sign for the operand.
+            if (idx >= 0 && expr[idx] == '-')
+            {
+                // treat '-' as sign when it's at the start or preceded by an operator or '('
+                if (idx == 0 || IsOperator(expr[idx - 1].ToString()) || expr[idx - 1] == '(')
+                {
+                    return idx; // include the '-' as part of operand
+                }
+            }
+
+            return idx + 1;
         }
 
         private void textBoxExpression_TextChanged(object sender, EventArgs e)
@@ -282,13 +486,12 @@ namespace SimpleCalculator
 
                 try
                 {
-                    var dt = new DataTable();
-                    var value = dt.Compute(eval, null);
+                    var value = EvaluateExpression(beforeEq);
                     // append result after '='; this will re-enter TextChanged but the guard above prevents recomputation
-                    textBoxExpression.Text = beforeEq + "=" + value.ToString();
-                    textBoxResult.Text = value.ToString();
+                    textBoxExpression.Text = beforeEq + "=" + value;
+                    textBoxResult.Text = value;
                     tokens.Clear();
-                    currentOperand = value.ToString();
+                    currentOperand = value;
                 }
                 catch
                 {
@@ -299,15 +502,35 @@ namespace SimpleCalculator
             }
 
             // keep behavior minimal: when user types directly in expression, update current operand and result preview
-            int idx = expr.Length - 1;
-            var operand = string.Empty;
-            while (idx >= 0 && !IsOperator(expr[idx].ToString()))
-            {
-                operand = expr[idx] + operand;
-                idx--;
-            }
-            currentOperand = operand;
+            int start = FindLastOperandStart(expr);
+            currentOperand = start < expr.Length ? expr.Substring(start) : string.Empty;
             textBoxResult.Text = currentOperand;
+        }
+
+        private void button1_Click(object sender, EventArgs e)
+        {
+            // Show exponent form for square: append ^2 to the last operand
+            if (string.IsNullOrEmpty(currentOperand)) return;
+
+            var expr = textBoxExpression.Text ?? string.Empty;
+            int start = FindLastOperandStart(expr);
+            var prefix = start > 0 ? expr.Substring(0, start) : string.Empty;
+            textBoxExpression.Text = prefix + currentOperand + "\u00B2";
+            currentOperand = currentOperand + "\u00B2";
+            textBoxResult.Clear();
+        }
+
+        private void BtnCube_Click(object? sender, EventArgs e)
+        {
+            // Show exponent form for cube: append ^3 to the last operand
+            if (string.IsNullOrEmpty(currentOperand)) return;
+
+            var expr = textBoxExpression.Text ?? string.Empty;
+            int start = FindLastOperandStart(expr);
+            var prefix = start > 0 ? expr.Substring(0, start) : string.Empty;
+            textBoxExpression.Text = prefix + currentOperand + "\u00B3";
+            currentOperand = currentOperand + "\u00B3";
+            textBoxResult.Clear();
         }
     }
 }

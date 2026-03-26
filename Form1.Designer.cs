@@ -51,6 +51,10 @@
             btn0 = new Button();
             btnDot = new Button();
             btnResult = new Button();
+            btnOpenParen = new Button();
+            btnCloseParen = new Button();
+            btnNumSquare = new Button();
+            btnNumCube = new Button();
             SuspendLayout();
             // 
             // textBoxExpression
@@ -299,11 +303,56 @@
             btnResult.Text = "=";
             btnResult.UseVisualStyleBackColor = true;
             // 
+            // btnOpenParen
+            // 
+            btnOpenParen.Font = new Font("맑은 고딕", 12F, FontStyle.Bold, GraphicsUnit.Point, 129);
+            btnOpenParen.Location = new Point(559, 188);
+            btnOpenParen.Name = "btnOpenParen";
+            btnOpenParen.Size = new Size(75, 37);
+            btnOpenParen.TabIndex = 23;
+            btnOpenParen.Text = "(";
+            btnOpenParen.UseVisualStyleBackColor = true;
+            // 
+            // btnCloseParen
+            // 
+            btnCloseParen.Font = new Font("맑은 고딕", 12F, FontStyle.Bold, GraphicsUnit.Point, 129);
+            btnCloseParen.Location = new Point(559, 243);
+            btnCloseParen.Name = "btnCloseParen";
+            btnCloseParen.Size = new Size(75, 37);
+            btnCloseParen.TabIndex = 24;
+            btnCloseParen.Text = ")";
+            btnCloseParen.UseVisualStyleBackColor = true;
+            // 
+            // btnNumSquare
+            // 
+            btnNumSquare.Font = new Font("맑은 고딕", 14.25F, FontStyle.Bold, GraphicsUnit.Point, 129);
+            btnNumSquare.Location = new Point(559, 294);
+            btnNumSquare.Name = "btnNumSquare";
+            btnNumSquare.Size = new Size(75, 37);
+            btnNumSquare.TabIndex = 25;
+            btnNumSquare.Text = "x²";
+            btnNumSquare.UseVisualStyleBackColor = true;
+            btnNumSquare.Click += button1_Click;
+            // 
+            // btnNumCube
+            // 
+            btnNumCube.Font = new Font("맑은 고딕", 14.25F, FontStyle.Bold, GraphicsUnit.Point, 129);
+            btnNumCube.Location = new Point(559, 349);
+            btnNumCube.Name = "btnNumCube";
+            btnNumCube.Size = new Size(75, 37);
+            btnNumCube.TabIndex = 26;
+            btnNumCube.Text = "x³";
+            btnNumCube.UseVisualStyleBackColor = true;
+            // 
             // Form1
             // 
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
             ClientSize = new Size(800, 450);
+            Controls.Add(btnNumCube);
+            Controls.Add(btnNumSquare);
+            Controls.Add(btnCloseParen);
+            Controls.Add(btnOpenParen);
             Controls.Add(btnResult);
             Controls.Add(btnDot);
             Controls.Add(btn0);
@@ -358,5 +407,9 @@
         private Button btn0;
         private Button btnDot;
         private Button btnResult;
+        private Button btnOpenParen;
+        private Button btnCloseParen;
+        private Button btnNumSquare;
+        private Button btnNumCube;
     }
 }
