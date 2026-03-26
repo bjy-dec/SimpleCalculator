@@ -1,20 +1,20 @@
-<<<<<<< HEAD
 using System.Data;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Globalization;
 
-=======
->>>>>>> parent of 1e41e7a (과제1 코딩과 테스트 완료)
 namespace SimpleCalculator
 {
+
     public partial class Form1 : Form
     {
+        private string currentOperand = string.Empty;
+        private List<string> tokens = new List<string>();
+
         public Form1()
         {
             InitializeComponent();
-<<<<<<< HEAD
             AttachHandlers();
         }
 
@@ -505,8 +505,6 @@ namespace SimpleCalculator
             int start = FindLastOperandStart(expr);
             currentOperand = start < expr.Length ? expr.Substring(start) : string.Empty;
             textBoxResult.Text = currentOperand;
-=======
->>>>>>> parent of 1e41e7a (과제1 코딩과 테스트 완료)
         }
 
         private void button1_Click(object sender, EventArgs e)
