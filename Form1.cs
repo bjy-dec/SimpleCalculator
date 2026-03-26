@@ -110,11 +110,34 @@ namespace SimpleCalculator
 
         private void BtnCE_Click(object? sender, EventArgs e)
         {
-            // Clear current entry
+            // Clear current entry (remove last token or result). Make it repeatable.
             currentOperand = string.Empty;
-            // remove trailing operand from expression
-            // simple approach: remove text after last operator
-            var expr = textBoxExpression.Text;
+            var expr = textBoxExpression.Text ?? string.Empty;
+            if (string.IsNullOrEmpty(expr))
+            {
+                textBoxResult.Clear();
+                return;
+            }
+
+            // If there is a computed result appended with '=', remove the result part first
+            var eqPos = expr.IndexOf('=');
+            if (eqPos >= 0)
+            {
+                // remove '=' and everything after it
+                textBoxExpression.Text = expr.Substring(0, eqPos);
+                textBoxResult.Clear();
+                return;
+            }
+
+            // If last char is an operator, remove that operator
+            if (expr.Length > 0 && IsOperator(expr.Last().ToString()))
+            {
+                textBoxExpression.Text = expr.Substring(0, expr.Length - 1);
+                textBoxResult.Clear();
+                return;
+            }
+
+            // otherwise remove trailing operand (all digits/decimal/sign until previous operator)
             int idx = expr.Length - 1;
             while (idx >= 0 && !IsOperator(expr[idx].ToString())) idx--;
             textBoxExpression.Text = idx >= 0 ? expr.Substring(0, idx + 1) : string.Empty;
@@ -123,9 +146,34 @@ namespace SimpleCalculator
 
         private void BtnDel_Click(object? sender, EventArgs e)
         {
-            var expr = textBoxExpression.Text;
+            var expr = textBoxExpression.Text ?? string.Empty;
             if (expr.Length == 0) return;
-            // remove last char
+
+            // If expression contains '=', allow deleting the result chars one by one, then '=' itself
+            var eqPos = expr.IndexOf('=');
+            if (eqPos >= 0)
+            {
+                // If there are chars after '=', remove last char of result
+                if (eqPos < expr.Length - 1)
+                {
+                    expr = expr.Substring(0, expr.Length - 1);
+                    textBoxExpression.Text = expr;
+                    // show remaining part after '=' as current result preview
+                    var rem = expr.Substring(eqPos + 1);
+                    currentOperand = rem;
+                    textBoxResult.Text = currentOperand;
+                    return;
+                }
+
+                // If '=' is the last char, remove it
+                expr = expr.Substring(0, expr.Length - 1);
+                textBoxExpression.Text = expr;
+                currentOperand = string.Empty;
+                textBoxResult.Clear();
+                return;
+            }
+
+            // Normal behavior: remove last char
             expr = expr.Substring(0, expr.Length - 1);
             textBoxExpression.Text = expr;
 

@@ -30,7 +30,7 @@
         {
             textBoxExpression = new TextBox();
             textBoxResult = new TextBox();
-            label1 = new Label();
+            lblName = new Label();
             btnCE = new Button();
             btnC = new Button();
             btnDel = new Button();
@@ -70,16 +70,16 @@
             textBoxResult.Size = new Size(391, 29);
             textBoxResult.TabIndex = 1;
             // 
-            // label1
+            // lblName
             // 
-            label1.AutoSize = true;
-            label1.Font = new Font("맑은 고딕", 36F, FontStyle.Bold, GraphicsUnit.Point, 129);
-            label1.ForeColor = Color.Blue;
-            label1.Location = new Point(123, 20);
-            label1.Name = "label1";
-            label1.Size = new Size(426, 65);
-            label1.TabIndex = 2;
-            label1.Text = "Simple Calculator";
+            lblName.AutoSize = true;
+            lblName.Font = new Font("맑은 고딕", 36F, FontStyle.Bold, GraphicsUnit.Point, 129);
+            lblName.ForeColor = Color.Blue;
+            lblName.Location = new Point(123, 20);
+            lblName.Name = "lblName";
+            lblName.Size = new Size(426, 65);
+            lblName.TabIndex = 2;
+            lblName.Text = "Simple Calculator";
             // 
             // btnCE
             // 
@@ -324,11 +324,11 @@
             Controls.Add(btnDel);
             Controls.Add(btnC);
             Controls.Add(btnCE);
-            Controls.Add(label1);
+            Controls.Add(lblName);
             Controls.Add(textBoxResult);
             Controls.Add(textBoxExpression);
             Name = "Form1";
-            Text = "Form1";
+            Text = "Calculator v1.0";
             ResumeLayout(false);
             PerformLayout();
         }
@@ -337,7 +337,7 @@
 
         private TextBox textBoxExpression;
         private TextBox textBoxResult;
-        private Label label1;
+        private Label lblName;
         private Button btnCE;
         private Button btnC;
         private Button btnDel;
